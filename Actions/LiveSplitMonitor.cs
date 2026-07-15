@@ -32,11 +32,11 @@ public class CPHInline
 
         var betters = GetBetters(newAttempt);
         if (betters.Count == 0) {
-            CPH.SendMessage($"Versuch {newAttempt} ist aktiv! Niemand hat auf diesen Versuch gesetzt!");
+            CPH.SendMessage($"[BBB] Versuch {newAttempt} ist aktiv! Niemand hat auf diesen Versuch gesetzt!");
         } 
         else {
             var mentions = BuildMentions(betters, maxChars: 400);
-            CPH.SendMessage($"Versuch {newAttempt} ist aktiv! {mentions} - ihr habt auf diesen Versuch gesetzt!");
+            CPH.SendMessage($"[BBB] Versuch {newAttempt} ist aktiv! {mentions} - ihr habt auf diesen Versuch gesetzt!");
         }
 
         CPH.LogInfo($"[BBB] Announced attempt {newAttempt} for {betters.Count} viewer(s).");
