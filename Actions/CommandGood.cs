@@ -30,9 +30,10 @@ public class CPHInline
             if (parts.Length < 3)
                 continue;
             CPH.TwitchRedemptionFulfill(parts[1], parts[2]);
+            var username = parts[0];
+            CPH.SendMessage($"[BBB] Glückwunsch, {username}! Die Wette auf Run {activeAttempt} war erfolgreich!");
         }
-
-        CPH.SendMessage($"[BBB] Glück gehabt! Die Wetten auf Run {activeAttempt} waren erfolgreich. Herzlichen Glückwunsch an die Gewinner!");
+        
         CPH.UnsetGlobalVar($"{BetsKeyPrefix}{activeAttempt}", false);
         return true;
     }
