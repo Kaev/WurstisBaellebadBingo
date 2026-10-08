@@ -17,7 +17,8 @@ public class CPHInline
 
         if (!int.TryParse(raw, out int newAttempt) || newAttempt <= 0)
         {
-            // Not an attempt-count reply (could be another message type) - ignore.
+            // Not an attempt-count reply: could be a timer phase or split name.
+            HandleStateMessage(raw);
             return true;
         }
 
@@ -42,6 +43,74 @@ public class CPHInline
         CPH.LogInfo($"[BBB] Announced attempt {newAttempt} for {betters.Count} viewer(s).");
 
         return true;
+    }
+
+    private const string PhaseKey = "BBB_last_phase";
+    private const string DeckReachedKey = "BBB_deck_reached";
+    private const string DeckCheckSplitName = "Deck-Check";
+    private const int TimeoutDuration = 10; // In Seconds
+
+    private void HandleStateMessage(string msg)
+    {
+        var lastPhase = CPH.GetGlobalVar<string>(PhaseKey, false) ?? "";
+
+        switch (msg)
+        {
+            case "Running":
+            case "Paused":
+                if (lastPhase != "Running" && lastPhase != "Paused")
+                    CPH.SetGlobalVar(DeckReachedKey, false, false); // new run started
+                CPH.SetGlobalVar(PhaseKey, msg, false);
+                return;
+
+            case "NotRunning": // reset
+            case "Ended":      // finished
+                CPH.SetGlobalVar(PhaseKey, msg, false);
+                if (lastPhase != "Running" && lastPhase != "Paused")
+                    return; // no run was in progress
+                var deckReached = CPH.GetGlobalVar<bool>(DeckReachedKey, false);
+                CPH.SetGlobalVar(DeckReachedKey, false, false);
+                ResolveBets(msg == "Ended" || deckReached);
+                return;
+        }
+
+        // Anything else is treated as the current split name.
+        if ((lastPhase == "Running" || lastPhase == "Paused")
+            && msg.Equals(DeckCheckSplitName, System.StringComparison.OrdinalIgnoreCase))
+        {
+            CPH.SetGlobalVar(DeckReachedKey, true, false);
+        }
+    }
+
+    private void ResolveBets(bool good)
+    {
+        var attempt = CPH.GetGlobalVar<int>(ActiveAttemptKey, false);
+        if (attempt <= 0)
+            return;
+
+        var key = $"{BetsKeyPrefix}{attempt}";
+        var bets = CPH.GetGlobalVar<string>(key, false);
+        CPH.UnsetGlobalVar(key, false);
+        if (string.IsNullOrEmpty(bets))
+            return;
+
+        foreach (var entry in bets.Split(','))
+        {
+            var parts = entry.Split('|');
+            if (parts.Length < 3)
+                continue;
+            var username = parts[0];
+            CPH.TwitchRedemptionFulfill(parts[1], parts[2]);
+            if (good)
+            {
+                CPH.SendMessage($"[BBB] Glückwunsch, {username}! Die Wette auf Run {attempt} war erfolgreich!");
+            }
+            else
+            {
+                CPH.SendMessage($"[BBB] @{username}, leider war die Wette auf den Run {attempt} nicht erfolgreich. Viel Glück beim nächsten Mal!");
+                CPH.TwitchTimeoutUser(username, TimeoutDuration, $"Wette auf Run {attempt} verloren");
+            }
+        }
     }
 
     private static string BuildMentions(List<string> users, int maxChars)
